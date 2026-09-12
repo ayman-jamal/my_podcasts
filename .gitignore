@@ -48,3 +48,6 @@ migrate_working_dir/
 **/android/key.properties
 *.jks
 *.keystore
+
+# Built APK archive
+my-podcasts-apk.zip
