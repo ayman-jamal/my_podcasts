@@ -15,9 +15,6 @@
  * Version: New version, so the same URL serves the new code.
  */
 
-# Deployment ID = AKfycbystTexM8bsMTXiJ6kKUgfbGc4Ibc0G9MXCm8Pmhv2_rxqHpAfX6RDFNG3M-nl4uPk0
-# URL = https://script.google.com/macros/s/AKfycbystTexM8bsMTXiJ6kKUgfbGc4Ibc0G9MXCm8Pmhv2_rxqHpAfX6RDFNG3M-nl4uPk0/exec
-
 const TOKEN = 'CHANGE-ME-to-a-long-random-secret';
 const SHEET_NAME = 'Podcasts';
 

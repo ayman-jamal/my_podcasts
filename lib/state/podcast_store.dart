@@ -98,7 +98,9 @@ class PodcastStore extends ChangeNotifier {
     _scriptUrl = scriptUrl.trim();
     _token = token.trim();
     notifyListeners();
-    await refresh();
+    // Load in the background so Settings can close right away; the home
+    // screen shows progress and any error.
+    unawaited(refresh());
   }
 
   /// Checks that the given URL/token work, without saving them.
@@ -123,18 +125,41 @@ class PodcastStore extends ChangeNotifier {
     }
   }
 
+  /// Shows [podcast] in the list right away, then saves it to the sheet.
+  /// If saving fails, it is removed again and the error is rethrown.
   Future<Podcast> add(Podcast podcast) async {
-    final saved = await _sheet.add(_scriptUrl, _token, podcast);
-    _all = [..._all.where((p) => p.id != saved.id), saved];
-    await _persist();
-    return saved;
+    _all = [..._all.where((p) => p.id != podcast.id), podcast];
+    notifyListeners();
+    try {
+      final saved = await _sheet.add(_scriptUrl, _token, podcast);
+      _all = [..._all.where((p) => p.id != saved.id), saved];
+      await _persist();
+      return saved;
+    } catch (_) {
+      _all = _all.where((p) => p.id != podcast.id).toList();
+      notifyListeners();
+      rethrow;
+    }
   }
 
+  /// Shows the change right away, then saves it to the sheet.
+  /// If saving fails, the previous version is restored and the error is rethrown.
   Future<Podcast> update(Podcast podcast) async {
-    final saved = await _sheet.update(_scriptUrl, _token, podcast);
-    _all = [for (final p in _all) p.id == saved.id ? saved : p];
-    await _persist();
-    return saved;
+    final previous = byId(podcast.id);
+    _all = [for (final p in _all) p.id == podcast.id ? podcast : p];
+    notifyListeners();
+    try {
+      final saved = await _sheet.update(_scriptUrl, _token, podcast);
+      _all = [for (final p in _all) p.id == saved.id ? saved : p];
+      await _persist();
+      return saved;
+    } catch (_) {
+      if (previous != null) {
+        _all = [for (final p in _all) p.id == podcast.id ? previous : p];
+      }
+      notifyListeners();
+      rethrow;
+    }
   }
 
   Future<void> delete(String id) async {

@@ -50,19 +50,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _save() async {
-    setState(() => _busy = true);
-    final store = context.read<PodcastStore>();
     final navigator = Navigator.of(context);
-    await store.saveSettings(_url.text, _token.text);
-    if (!mounted) return;
-    setState(() => _busy = false);
-    if (store.error != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Saved, but loading failed: ${store.error}')),
-      );
-    } else {
-      navigator.pop();
-    }
+    await context.read<PodcastStore>().saveSettings(_url.text, _token.text);
+    navigator.pop();
   }
 
   @override

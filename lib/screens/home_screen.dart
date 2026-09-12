@@ -52,7 +52,31 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('My Podcasts'),
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('My Podcasts'),
+            if (store.isConfigured && store.totalCount > 0) ...[
+              const SizedBox(width: 8),
+              // Total podcasts; while searching, "matches of total".
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.secondaryContainer,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  store.query.trim().isEmpty
+                      ? '${store.totalCount}'
+                      : '${store.podcasts.length} of ${store.totalCount}',
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        color: Theme.of(context).colorScheme.onSecondaryContainer,
+                      ),
+                ),
+              ),
+            ],
+          ],
+        ),
         actions: [
           PopupMenuButton<SortMode>(
             tooltip: 'Sort',

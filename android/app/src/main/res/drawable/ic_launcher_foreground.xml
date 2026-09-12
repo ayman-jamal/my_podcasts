@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Launcher icon foreground: a microphone (podcasts) with a star (rank). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Microphone capsule -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M38,40 A10,10 0 0 1 58,40 V50 A10,10 0 0 1 38,50 Z" />
+    <!-- Holder, stem and base -->
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="4"
+        android:strokeLineCap="round"
+        android:pathData="M30,50 A18,18 0 0 0 66,50 M48,68 V79 M39,79 H57" />
+    <!-- Rank star -->
+    <path
+        android:fillColor="#FFC107"
+        android:pathData="M70.00,25.50 L72.06,31.17 L78.08,31.37 L73.33,35.08 L75.00,40.88 L70.00,37.50 L65.00,40.88 L66.67,35.08 L61.92,31.37 L67.94,31.17 Z" />
+</vector>

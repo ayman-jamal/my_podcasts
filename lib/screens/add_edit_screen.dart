@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -256,52 +258,64 @@ class _AddEditScreenState extends State<AddEditScreen> {
 
   bool get _canSubmit => _missing == null && !_saving && !_loadingInfo;
 
-  Future<void> _submit() async {
-    FocusScope.of(context).unfocus();
-    setState(() => _saving = true);
+  /// Closes the screen right away; the sheet is updated in the background.
+  void _submit() {
+    if (_saving) return;
+    _saving = true;
     final store = context.read<PodcastStore>();
-    final navigator = Navigator.of(context);
     final messenger = ScaffoldMessenger.of(context);
-    final info = _info!;
+    final now = DateTime.now();
 
+    final existing = widget.existing;
+    if (existing != null) {
+      final podcast =
+          existing.copyWith(rank: _rank, points: _allPoints, lastUpdated: now);
+      unawaited(_saveInBackground(
+          store, messenger, () => store.update(podcast), 'Podcast updated'));
+    } else {
+      final info = _info!;
+      final podcast = Podcast(
+        id: const Uuid().v4(),
+        videoId: info.videoId,
+        title: info.title,
+        channel: info.channel,
+        url: info.url,
+        thumbnailUrl: info.thumbnailUrl,
+        rank: _rank!,
+        points: _allPoints,
+        dateAdded: now,
+        lastUpdated: now,
+      );
+      unawaited(_saveInBackground(store, messenger, () => store.add(podcast),
+          'Podcast saved to your sheet'));
+    }
+    Navigator.of(context).pop(true);
+  }
+
+  /// Runs [save] after the screen has closed and reports the result on the
+  /// app-wide snackbar, with a Retry button if it failed.
+  static Future<void> _saveInBackground(
+    PodcastStore store,
+    ScaffoldMessengerState messenger,
+    Future<Object?> Function() save,
+    String doneMessage,
+  ) async {
     try {
-      final existing = widget.existing;
-      if (existing != null) {
-        await store.update(existing.copyWith(rank: _rank, points: _allPoints));
-        messenger.showSnackBar(const SnackBar(content: Text('Podcast updated')));
-      } else {
-        await store.add(Podcast(
-          id: const Uuid().v4(),
-          videoId: info.videoId,
-          title: info.title,
-          channel: info.channel,
-          url: info.url,
-          thumbnailUrl: info.thumbnailUrl,
-          rank: _rank!,
-          points: _allPoints,
-        ));
-        messenger.showSnackBar(
-          const SnackBar(content: Text('Podcast saved to your sheet')),
-        );
-      }
-      navigator.pop(true);
+      await save();
+      messenger.showSnackBar(SnackBar(content: Text(doneMessage)));
     } on DuplicatePodcastException catch (e) {
       await store.refresh();
-      if (!mounted) return;
-      setState(() => _saving = false);
-      final existing = store.byId(e.existingId);
-      if (existing != null) {
-        await _offerEditExisting(existing);
-      } else {
-        messenger.showSnackBar(SnackBar(content: Text(e.message)));
-      }
+      messenger.showSnackBar(SnackBar(content: Text(e.message)));
     } catch (e) {
-      if (!mounted) return;
-      setState(() => _saving = false);
       messenger.showSnackBar(
         SnackBar(
           content: Text('Save failed: $e'),
-          duration: const Duration(seconds: 6),
+          duration: const Duration(seconds: 10),
+          action: SnackBarAction(
+            label: 'Retry',
+            onPressed: () => unawaited(
+                _saveInBackground(store, messenger, save, doneMessage)),
+          ),
         ),
       );
     }
