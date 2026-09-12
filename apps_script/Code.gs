@@ -4,7 +4,10 @@
  * Setup:
  *  1. Open your Google Sheet -> Extensions -> Apps Script.
  *  2. Replace the default code with this file.
- *  3. Change TOKEN below to your own long random secret.
+ *  3. Set your token: Project Settings (gear icon) -> Script properties ->
+ *     Add property TOKEN = your own long random secret.
+ *     (Or change the TOKEN constant below, but then every change needs a
+ *     new deployment version.)
  *  4. Run `setup` once (Run button) and grant permissions.
  *  5. Deploy -> New deployment -> Web app
  *       Execute as: Me
@@ -13,10 +16,15 @@
  *
  * After editing this code, use Deploy -> Manage deployments -> Edit ->
  * Version: New version, so the same URL serves the new code.
+ * Changing the TOKEN script property does NOT need a new version.
  */
 
+/** Fallback used only when the TOKEN script property is not set. */
 const TOKEN = 'CHANGE-ME-to-a-long-random-secret';
 const SHEET_NAME = 'Podcasts';
+
+/** Bump when this file changes, so the app can detect an outdated deployment. */
+const SCRIPT_VERSION = 2;
 
 const HEADERS = [
   'ID',
@@ -75,6 +83,9 @@ function doGet(e) {
     checkToken_(params.token);
     const action = params.action || 'list';
     if (action === 'list') return listPodcasts_();
+    if (action === 'ping') {
+      return { version: SCRIPT_VERSION, sheet: SHEET_NAME, count: listPodcasts_().length };
+    }
     throw new Error('Unknown action: ' + action);
   });
 }
@@ -85,7 +96,7 @@ function doPost(e) {
     checkToken_(body.token);
 
     const lock = LockService.getScriptLock();
-    lock.waitLock(20000);
+    if (!lock.tryLock(25000)) throw new Error('Sheet is busy, try again');
     try {
       switch (body.action) {
         case 'add':
@@ -114,12 +125,25 @@ function handle_(fn) {
   } catch (err) {
     result = { ok: false, error: String((err && err.message) || err) };
   }
+  result.version = SCRIPT_VERSION;
   return ContentService.createTextOutput(JSON.stringify(result))
     .setMimeType(ContentService.MimeType.JSON);
 }
 
+/** The TOKEN script property if set, otherwise the TOKEN constant. */
+function getToken_() {
+  const prop = PropertiesService.getScriptProperties().getProperty('TOKEN');
+  return String(prop || TOKEN).trim();
+}
+
 function checkToken_(token) {
-  if (!token || token !== TOKEN) throw new Error('Unauthorized: invalid token');
+  const expected = getToken_();
+  if (!expected || expected.indexOf('CHANGE-ME') === 0) {
+    throw new Error('Unauthorized: TOKEN is not set in the script. Set the TOKEN script property.');
+  }
+  if (String(token || '').trim() !== expected) {
+    throw new Error('Unauthorized: token does not match the deployed script');
+  }
 }
 
 function getSheet_() {

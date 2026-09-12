@@ -37,13 +37,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() => _busy = true);
     final messenger = ScaffoldMessenger.of(context);
     try {
-      final count =
+      final status =
           await context.read<PodcastStore>().testConnection(_url.text, _token.text);
       messenger.showSnackBar(
-        SnackBar(content: Text('Connected! $count podcasts found in the sheet.')),
+        SnackBar(
+          content: Text('Connected (script v${status.version}). '
+              '${status.count} podcasts found in the sheet.'),
+        ),
       );
     } catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text('Connection failed: $e')));
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('Connection failed: $e'),
+          duration: const Duration(seconds: 8),
+        ),
+      );
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -75,6 +83,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           TextField(
             controller: _url,
             keyboardType: TextInputType.url,
+            autocorrect: false,
             decoration: const InputDecoration(
               labelText: 'Script URL',
               hintText: 'https://script.google.com/macros/s/.../exec',
@@ -86,6 +95,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
           TextField(
             controller: _token,
             obscureText: _obscure,
+            // Keep the keyboard from capitalizing or "correcting" the token.
+            keyboardType: TextInputType.visiblePassword,
+            autocorrect: false,
+            enableSuggestions: false,
             decoration: InputDecoration(
               labelText: 'Token',
               border: const OutlineInputBorder(),

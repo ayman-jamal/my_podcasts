@@ -24,6 +24,7 @@ class PodcastStore extends ChangeNotifier {
   String _scriptUrl = '';
   String _token = '';
   bool _initialized = false;
+  Future<void> _writeQueue = Future.value();
 
   bool get loading => _loading;
   String? get error => _error;
@@ -96,7 +97,7 @@ class PodcastStore extends ChangeNotifier {
   Future<void> saveSettings(String scriptUrl, String token) async {
     await _settings.save(scriptUrl: scriptUrl, token: token);
     _scriptUrl = scriptUrl.trim();
-    _token = token.trim();
+    _token = SettingsService.cleanToken(token);
     notifyListeners();
     // Load in the background so Settings can close right away; the home
     // screen shows progress and any error.
@@ -104,9 +105,8 @@ class PodcastStore extends ChangeNotifier {
   }
 
   /// Checks that the given URL/token work, without saving them.
-  Future<int> testConnection(String scriptUrl, String token) async {
-    final list = await _sheet.list(scriptUrl.trim(), token.trim());
-    return list.length;
+  Future<SheetStatus> testConnection(String scriptUrl, String token) {
+    return _sheet.ping(scriptUrl.trim(), SettingsService.cleanToken(token));
   }
 
   Future<void> refresh() async {
@@ -131,7 +131,7 @@ class PodcastStore extends ChangeNotifier {
     _all = [..._all.where((p) => p.id != podcast.id), podcast];
     notifyListeners();
     try {
-      final saved = await _sheet.add(_scriptUrl, _token, podcast);
+      final saved = await _serialized(() => _sheet.add(_scriptUrl, _token, podcast));
       _all = [..._all.where((p) => p.id != saved.id), saved];
       await _persist();
       return saved;
@@ -149,7 +149,7 @@ class PodcastStore extends ChangeNotifier {
     _all = [for (final p in _all) p.id == podcast.id ? podcast : p];
     notifyListeners();
     try {
-      final saved = await _sheet.update(_scriptUrl, _token, podcast);
+      final saved = await _serialized(() => _sheet.update(_scriptUrl, _token, podcast));
       _all = [for (final p in _all) p.id == saved.id ? saved : p];
       await _persist();
       return saved;
@@ -163,9 +163,17 @@ class PodcastStore extends ChangeNotifier {
   }
 
   Future<void> delete(String id) async {
-    await _sheet.delete(_scriptUrl, _token, id);
+    await _serialized(() => _sheet.delete(_scriptUrl, _token, id));
     _all = _all.where((p) => p.id != id).toList();
     await _persist();
+  }
+
+  /// Sends sheet writes one at a time, so quick background saves don't pile
+  /// up on the script lock and time out.
+  Future<T> _serialized<T>(Future<T> Function() write) {
+    final result = _writeQueue.then((_) => write());
+    _writeQueue = result.then((_) {}, onError: (_) {});
+    return result;
   }
 
   Future<void> _persist() async {
